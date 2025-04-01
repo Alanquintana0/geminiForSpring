@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini Chat</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+<div class="flex-1 overflow-y-auto p-4">
+  <div th:each="msg : ${history}" class="space-y-4">
+    <div class="bg-blue-100 p-2 rounded">
+      <strong>You:</strong> <span th:text="${msg.userMessage}"></span>
+    </div>
+    <div class="bg-green-100 p-2 rounded">
+      <strong>Gemini:</strong> <span th:text="${msg.geminiResponse}"></span>
+    </div>
+  </div>
+</div>
+<div class="p-4 bg-white">
+  <form method="post" action="/chat">
+    <div class="flex space-x-4">
+      <input type="text" name="message" class="flex-1 border rounded p-2" placeholder="Type your message...">
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Send</button>
+    </div>
+  </form>
+</div>
+</body>
+</html>
