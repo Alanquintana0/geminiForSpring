@@ -4,25 +4,180 @@
   <meta charset="UTF-8">
   <title>Gemini Chat</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Add marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    // Function to parse Gemini response and extract just the message text
+    function parseGeminiResponse(responseStr) {
+      try {
+        // First try to parse as JSON
+        const response = JSON.parse(responseStr);
+
+        // Navigate through the Gemini API response structure to get the text
+        if (response && response.candidates && response.candidates[0] &&
+                response.candidates[0].content && response.candidates[0].content.parts) {
+          return response.candidates[0].content.parts[0].text;
+        }
+
+        // If we couldn't find the expected structure but it was valid JSON
+        return "Response received but in unexpected format";
+      } catch (e) {
+        console.log("Not valid JSON or different structure, showing raw response");
+        // If it's not valid JSON, just return the raw string
+        return responseStr;
+      }
+    }
+
+    // Function to convert markdown to HTML
+    function renderMarkdown(text) {
+      return marked.parse(text);
+    }
+
+    // Toggle sidebar on mobile view
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('hidden');
+      sidebar.classList.toggle('block');
+    }
+  </script>
+  <style>
+    /* Basic styling for markdown elements */
+    .markdown-content p {
+      margin-bottom: 1em;
+    }
+    .markdown-content h1 {
+      font-size: 1.8em;
+      font-weight: bold;
+      margin: 0.5em 0;
+    }
+    .markdown-content h2 {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 0.5em 0;
+    }
+    .markdown-content h3 {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin: 0.5em 0;
+    }
+    .markdown-content ul {
+      list-style-type: disc;
+      margin-left: 1.5em;
+      margin-bottom: 1em;
+    }
+    .markdown-content ol {
+      list-style-type: decimal;
+      margin-left: 1.5em;
+      margin-bottom: 1em;
+    }
+    .markdown-content pre {
+      background-color: #f0f0f0;
+      padding: 0.5em;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-bottom: 1em;
+    }
+    .markdown-content code {
+      background-color: #f0f0f0;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    .markdown-content blockquote {
+      border-left: 4px solid #ddd;
+      padding-left: 1em;
+      color: #666;
+      margin-bottom: 1em;
+    }
+
+    /* Chat list item styles */
+    .chat-item {
+      transition: all 0.2s ease;
+    }
+    .chat-item:hover {
+      background-color: #e0e7ff;
+    }
+    .chat-item.active {
+      background-color: #c7d2fe;
+      border-left: 4px solid #4f46e5;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col">
-<div class="flex-1 overflow-y-auto p-4">
-  <div th:each="msg : ${history}" class="space-y-4">
-    <div class="bg-blue-100 p-2 rounded">
-      <strong>You:</strong> <span th:text="${msg.userMessage}"></span>
-    </div>
-    <div class="bg-green-100 p-2 rounded">
-      <strong>Gemini:</strong> <span th:text="${msg.geminiResponse}"></span>
+<body class="bg-gray-100 h-screen flex flex-col md:flex-row">
+<!-- Mobile sidebar toggle button -->
+<div class="md:hidden p-2 bg-gray-800 text-white">
+  <button onclick="toggleSidebar()" class="px-2 py-1 bg-blue-500 rounded">
+    ☰ Chats
+  </button>
+</div>
+
+<!-- Sidebar for chat list -->
+<div id="sidebar" class="hidden md:block md:w-64 bg-white border-r overflow-y-auto">
+  <div class="p-4 bg-gray-800 text-white">
+    <h2 class="text-xl font-bold">Gemini Chats</h2>
+  </div>
+
+  <!-- New Chat Button -->
+  <div class="p-4 border-b">
+    <a href="/?newChat=true" class="block w-full bg-blue-500 text-white text-center py-2 px-4 rounded hover:bg-blue-600">
+      New Chat
+    </a>
+  </div>
+
+  <!-- Chat List -->
+  <div class="divide-y">
+    <div th:each="chat : ${allChats}" class="chat-item p-3 cursor-pointer"
+         th:classappend="${chat.id == currentChatId} ? 'active' : ''"
+         th:onclick="'window.location.href=\'/chat/' + ${chat.id} + '\''">
+      <div class="font-medium" th:text="${'Chat ' + chat.id}">Chat ID</div>
+      <div class="text-sm text-gray-500"
+           th:text="${#dates.format(new java.util.Date(chat.createdAt), 'MMM dd, yyyy HH:mm')}">Date</div>
+      <div class="text-sm truncate" th:if="${chat.firstMessage}" th:text="${chat.firstMessage}">First message</div>
     </div>
   </div>
 </div>
-<div class="p-4 bg-white">
-  <form method="post" action="/chat">
-    <div class="flex space-x-4">
-      <input type="text" name="message" class="flex-1 border rounded p-2" placeholder="Type your message...">
-      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Send</button>
+
+<!-- Main chat area -->
+<div class="flex-1 flex flex-col h-screen">
+  <!-- Chat messages area -->
+  <div class="flex-1 overflow-y-auto p-4">
+    <div th:each="msg : ${history}" class="space-y-4 mb-6">
+      <div class="bg-blue-100 p-3 rounded-lg shadow-sm">
+        <strong>You:</strong> <span th:text="${msg.userMessage}"></span>
+      </div>
+      <div class="bg-red-100 p-3 rounded-lg shadow-sm">
+        <strong>Gemini:</strong>
+        <div th:if="${#strings.isEmpty(msg.geminiResponse)}">No response</div>
+        <div th:if="${!#strings.isEmpty(msg.geminiResponse)}"
+             th:attr="data-response=${msg.geminiResponse}"
+             class="gemini-response markdown-content mt-2"></div>
+      </div>
     </div>
-  </form>
+  </div>
+
+  <!-- Message input area -->
+  <div class="p-4 bg-white border-t">
+    <form method="post" action="/chat" class="flex space-x-2">
+      <input type="hidden" name="chatId" th:value="${currentChatId}">
+      <input type="text" name="message" class="flex-1 border rounded p-2" placeholder="Type your message...">
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Send</button>
+    </form>
+  </div>
 </div>
+
+<script>
+  // Process all Gemini responses after page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    const responseElements = document.querySelectorAll('.gemini-response');
+    responseElements.forEach(element => {
+      const rawResponse = element.getAttribute('data-response');
+      if (rawResponse) {
+        const text = parseGeminiResponse(rawResponse);
+        // Convert markdown to HTML
+        element.innerHTML = renderMarkdown(text);
+      }
+    });
+  });
+</script>
 </body>
 </html>

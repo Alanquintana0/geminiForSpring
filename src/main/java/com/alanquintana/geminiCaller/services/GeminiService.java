@@ -2,6 +2,7 @@ package com.alanquintana.geminiCaller.services;
 
 import com.alanquintana.geminiCaller.models.Chat;
 import com.alanquintana.geminiCaller.models.Message;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,10 +35,32 @@ public class GeminiService {
         this.chatRepository = chatRepository;
         this.messageRepository = messageRepository;
 
-        if(apiKey == null || apiKey.isEmpty()) {
+    }
+
+    @PostConstruct
+    private void validateApiKey() {
+        if (apiKey == null || apiKey.isEmpty()) {
             throw new IllegalStateException("Gemini API key not set");
         }
-        logger.info("Gemini API key set");
+        System.out.println("Gemini API Key: " + apiKey);
+        logger.info("Gemini API key set: {}", apiKey);
+    }
+
+    public Long getCurrentChatId() {
+        return currentChatId;
+    }
+
+    public void setCurrentChat(Long chatId) {
+        if (chatRepository.existsById(chatId)) {
+            currentChatId = chatId;
+            logger.info("Switched to chat with id: {}", currentChatId);
+        } else {
+            logger.warn("Attempted to switch to non-existent chat: {}", chatId);
+        }
+    }
+
+    public Iterable<Chat> getAllChats() {
+        return chatRepository.findAllByOrderByCreatedAtDesc();
     }
 
 //    public Mono<String> chatWithGemini(String userMessage){
