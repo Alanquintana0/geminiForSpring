@@ -16,7 +16,7 @@ public class Message {
 
     private String userMessage;
 
-    @Column(length = 10000)
+    @Column(length = 1000000)
     private String geminiResponse;
     private Long timestamp;
 }
