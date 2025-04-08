@@ -9,6 +9,7 @@ Ensure you have the following installed on your system:
 - **Java**: 17.0.12
 - **Apache Maven**: 3.9.9
 - **Docker**: 28.0.1
+- **Gemini**: 2.0 flash
 
 ## Setup and Installation
 
